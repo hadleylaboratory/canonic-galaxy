@@ -1,0 +1,30 @@
+name: Compile Galaxy
+# Triggered on any push that modifies INTEL/ files or CANON.md.
+# Walks INTEL/<scope_path>/INTEL.md hierarchy → builds galaxy.json → commits back.
+# No CF secrets required — CF worker fetches galaxy.json from GitHub raw with 5-min KV cache.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'INTEL/**'
+      - 'CANON.md'
+  workflow_dispatch:   # AUTO_GALAXY_BOOTSTRAP — worker-triggered first compile + operator-manual retry
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile galaxy.json
+        run: python compile-galaxy.py
+      - name: Commit galaxy.json
+        run: |
+          git config user.name "canonic-laude-provisioner[bot]"
+          git config user.email "laude-bot@canonic.org"
+          git add galaxy.json
+          git diff --cached --quiet && echo "no changes" || git commit -m "build: compile galaxy.json"
+          git push
